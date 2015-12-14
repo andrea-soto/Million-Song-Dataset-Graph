@@ -8,22 +8,128 @@ import numpy as np
 import h5py
 import json
 
-def main(inDir, outDir, mismatchFile):
+def parse_mismatches(line):
+    '''
+    This function extracts the songID and trackID of the mismatched records.
+    Returned value: ('songID', 'trackID')
+    '''
+    return line[8:45].split()
+
+
+def get_h5_info(path):
+    '''
+    Takes a path to a song stored as an HDF5 file and returns a dictionary with the 
+    information that will be included in the graph
+    ''' 
+    d = {}
+    with h5py.File(path, 'r') as f:
+        song_id = f['metadata']['songs']['song_id'][0]
+        track_id = f['analysis']['songs']['track_id'][0]
+        
+        if [song_id, track_id] not in songsToRemove.value:
+
+            # --- Artist Info -----------------------------
+            d.setdefault('artist_id', f['metadata']['songs']['artist_id'][0])
+            d.setdefault('artist_mbid', f['metadata']['songs']['artist_mbid'][0])
+            d.setdefault('artist_7did', f['metadata']['songs']['artist_7digitalid'][0])
+            d.setdefault('artist_name', f['metadata']['songs']['artist_name'][0])
+
+            # --- Song Info -----------------------------
+            d.setdefault('song_id', song_id)
+            d.setdefault('track_id', track_id)
+            d.setdefault('title', f['metadata']['songs']['title'][0])
+            d.setdefault('dance', f['analysis']['songs']['danceability'][0])
+            d.setdefault('dur', f['analysis']['songs']['duration'][0])
+            d.setdefault('energy', f['analysis']['songs']['energy'][0])
+            d.setdefault('loudness', f['analysis']['songs']['loudness'][0])
+
+            # --- Year -----------------------------
+            d.setdefault('year', f['musicbrainz']['songs']['year'][0])
+
+            # --- Album -----------------------------
+            d.setdefault('album', f['metadata']['songs']['release'][0])
+
+            # --- Similar Artist -----------------------------
+            d.setdefault('a_similar', np.array(f['metadata']['similar_artists']))
+
+            # --- Artist Terms -----------------------------
+            d.setdefault('a_terms', np.array(f['metadata']['artist_terms']))
+            d.setdefault('a_tfrq', np.array(f['metadata']['artist_terms_freq']))
+            d.setdefault('a_tw', np.array(f['metadata']['artist_terms_weight']))
+
+            return d
+        else: 
+            pass
+
+def get_json_info(path):
+    with open(path) as data_file:    
+        return json.load(data_file)
+
+def makeCSVline(line):
+    return ','.join(str(line[f]) for f in fieldsBrC.value)
     
+def artistToTags(record):
+    '''
+    Concatenate artist with each tag
+    Normalize tag frequency and weight
+    '''
+    normalize_frq = record['a_tfrq'] / sum(record['a_tfrq'])
+    normalize_w = record['a_tw'] / sum(record['a_tw'])
+    terms = record['a_terms']
+    artist = record['artist_id']
+    
+    result = []
+    for i in range(len(terms)):
+        result.append( artist +","+ terms[i] +","+ str(normalize_frq[i]) +","+ str(normalize_w[i]))
+    
+    return result
+
+def songToTags(record):
+    '''
+    Concatenate song with each tag
+    '''
+    tags = record['tags']
+    total_weight = sum(float(w[1]) for w in tags)
+    track_id = record['track_id']
+    
+    result = []
+    for i in range(len(tags)):
+        result.append( track_id +","+ tags[i][0] +","+ str(float(tags[i][1])/total_weight))
+    
+    return result
+
+if __name__ == '__main__':
+    '''
+    input_path: path to where the list of hdf5 and json files was created
+    output_path: a temporary directory where the Spark CSV files separated as part-000xx files will be stored
+    mismatch_path: path to where the mismatches file is located
+    
+    DO NOT INCLUDE '/' AT THE END OF PATH
+    Cannot change file names
+    '''
+    
+    inDir = sys.argv[1]  
+    outDir = sys.argv[2]
+    mismatch_path = sys.argv[3]
+    
+    #main(input_path, output_path)
     # === Start Spark Context ===
     sc = SparkContext(appName="SparkProcessing")
     
     # =====================================================================
     # === Load mismatches ===
-    toRemoveRDD = sc.textFile('file://'+mismatchFile+'/sid_mismatches.txt').map(parse_mismatches)
+    toRemoveRDD = sc.textFile('file://'+mismatch_path+'/sid_mismatches.txt').map(parse_mismatches)
+    #songsToRemove = toRemoveRDD.collect()
     songsToRemove = sc.broadcast(toRemoveRDD.collect())
     
+    
+    # =====================================================================
     # === Load list of files ===
     song_pathsRDD   = sc.textFile('file://' + inDir + '/list_hdf5_files.txt')
     lastfm_pathsRDD = sc.textFile('file://' + inDir + '/list_lastfm_files.txt')
     
     # === Extract Song Data ===
-    songsRDD = song_pathsRDD.map(get_h5_info).cache()
+    songsRDD = song_pathsRDD.map(get_h5_info).filter(lambda x: x<>None).cache()
     lastfmRDD = lastfm_pathsRDD.map(get_json_info).cache()
     
     # =====================================================================
@@ -113,114 +219,7 @@ def main(inDir, outDir, mismatchFile):
     # Song Released in Year (directional, no properties)
     songsRDD.filter(lambda x: int(x['year'])<>0).map(
         lambda x: x['song_id']+","+str(x['year'])).saveAsTextFile('file://'+outDir+'/rel_song_year')
-
-
-    # =====================================================================
+    
+    
     # === Stop Spark Context ===
     sc.stop()
-
-
-def parse_mismatches(line):
-    '''
-    This function extracts the songID and trackID of the mismatched records.
-    Returned value: ('songID', 'trackID')
-    '''
-    return line[8:45].split()
-
-
-def get_h5_info(path):
-    '''
-    Takes a path to a song stored as an HDF5 file and returns a dictionary with the 
-    information that will be included in the graph
-    ''' 
-    d = {}
-    with h5py.File(path, 'r') as f:
-        song_id = f['metadata']['songs']['song_id'][0]
-        track_id = f['analysis']['songs']['track_id'][0]
-        
-        if (song_id, track_id) not in songsToRemove.value:
-
-            # --- Artist Info -----------------------------
-            d.setdefault('artist_id', f['metadata']['songs']['artist_id'][0])
-            d.setdefault('artist_mbid', f['metadata']['songs']['artist_mbid'][0])
-            d.setdefault('artist_7did', f['metadata']['songs']['artist_7digitalid'][0])
-            d.setdefault('artist_name', f['metadata']['songs']['artist_name'][0])
-
-            # --- Song Info -----------------------------
-            d.setdefault('song_id', song_id)
-            d.setdefault('track_id', track_id)
-            d.setdefault('title', f['metadata']['songs']['title'][0])
-            d.setdefault('dance', f['analysis']['songs']['danceability'][0])
-            d.setdefault('dur', f['analysis']['songs']['duration'][0])
-            d.setdefault('energy', f['analysis']['songs']['energy'][0])
-            d.setdefault('loudness', f['analysis']['songs']['loudness'][0])
-
-            # --- Year -----------------------------
-            d.setdefault('year', f['musicbrainz']['songs']['year'][0])
-
-            # --- Album -----------------------------
-            d.setdefault('album', f['metadata']['songs']['release'][0])
-
-            # --- Similar Artist -----------------------------
-            d.setdefault('a_similar', np.array(f['metadata']['similar_artists']))
-
-            # --- Artist Terms -----------------------------
-            d.setdefault('a_terms', np.array(f['metadata']['artist_terms']))
-            d.setdefault('a_tfrq', np.array(f['metadata']['artist_terms_freq']))
-            d.setdefault('a_tw', np.array(f['metadata']['artist_terms_weight']))
-
-            return d
-        else: 
-            pass
-
-def get_json_info(path):
-    with open(path) as data_file:    
-        return json.load(data_file)
-
-def makeCSVline(line):
-    return ','.join(str(line[field]) for field in fieldsBrC.value)
-    
-def artistToTags(record):
-    '''
-    Concatenate artist with each tag
-    Normalize tag frequency and weight
-    '''
-    normalize_frq = record['a_tfrq'] / sum(record['a_tfrq'])
-    normalize_w = record['a_tw'] / sum(record['a_tw'])
-    terms = record['a_terms']
-    artist = record['artist_id']
-    
-    result = []
-    for i in range(len(terms)):
-        result.append( artist +","+ terms[i] +","+ str(normalize_frq[i]) +","+ str(normalize_w[i]))
-    
-    return result
-
-def songToTags(record):
-    '''
-    Concatenate song with each tag
-    '''
-    tags = record['tags']
-    total_weight = sum(float(w[1]) for w in tags)
-    track_id = record['track_id']
-    
-    result = []
-    for i in range(len(tags)):
-        result.append( track_id +","+ tags[i][0] +","+ str(float(tags[i][1])/total_weight))
-    
-    return result
-
-if __name__ == '__main__':
-    '''
-    input_path: path to where the list of hdf5 and json files was created
-    output_path: a temporary directory where the Spark CSV files separated as part-000xx files will be stored
-    mismatch_path: path to where the mismatches file is located
-    
-    DO NOT INCLUDE '/' AT THE END OF PATH
-    Cannot change file names
-    '''
-    input_path = sys.argv[1]  
-    output_path = sys.argv[2]
-    mismatch_path = sys.argv[2]
-    
-    main(input_path, output_path, mismatch_path)
