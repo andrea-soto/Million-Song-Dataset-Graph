@@ -4,21 +4,21 @@ import glob
 import sys
 import shutil
 
-def main(inFile, outFile, overwrite = False):
+def main(inDir, outDir, overwrite = False):
     
     try:
-        os.path.exists(inFile)
+        os.path.exists(inDir)
     except:
-        print "Input file: '%s' does not exist"%(inFile)
+        print "Input file: '%s' does not exist"%(inDir)
     else:
-        outFile = outFile + '/list_hdf5_files.txt'
+        outFile = outDir + '/list_hdf5_files.txt'
         if not os.path.exists(outFile) or overwrite:
             # List all paths of songs
-            get_song_paths = glob.glob(inFile+'/*/*/*/*.h5')
+            get_song_paths = glob.glob(inDir+'/*/*/*/*.h5')
             
             if not get_song_paths:
-                print "No HDF5 (.h5) files foung in '%s'"%(inFile)
-                print "Check that the file structure under '%s' is /*/*/*/song_files.h5"%(inFile)
+                print "No HDF5 (.h5) files foung in '%s'"%(inDir)
+                print "Check that the file structure under '%s' is /*/*/*/song_files.h5"%(inDir)
             else:
                 with open(outFile,'w') as f:
                     f.writelines('\n'.join(p for p in get_song_paths))

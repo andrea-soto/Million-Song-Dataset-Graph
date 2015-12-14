@@ -4,26 +4,28 @@ import glob
 import sys
 import shutil
 
-def main(inFile, outFile, overwrite = False):
+def main(inDir, outDir, overwrite = False):
     
     try:
-        os.path.exists(inFile)
+        os.path.exists(inDir)
     except:
-        print "Input file: '%s' does not exist"%(inFile)
+        print "Input file: '%s' does not exist"%(inDir)
     else:
-        outFile = outFile + '/list_lastfm_files.txt'
+        outFile = outDir + '/list_lastfm_files.txt'
         if not os.path.exists(outFile) or overwrite:
             # List all paths of songs
-            get_song_paths = glob.glob(inFile+'/*/*/*/*.json')
+            get_song_paths = glob.glob(inDir+'/*/*/*/*.json')
             
             if not get_song_paths:
-                print "No JSON files foung in '%s'"%(inFile)
-                print "Check that the file structure under '%s' is /*/*/*/song_files.json"%(inFile)
+                print "No JSON files foung in '%s'"%(inDir)
+                print "Check that the file structure under '%s' is /*/*/*/song_files.json"%(inDir)
             else:
                 with open(outFile,'w') as f:
                     f.writelines('\n'.join(p for p in get_song_paths))
                     f.close()
                 print  "File '%s' successfully created"%(outFile)
+        else:
+            print "File '%s' already exists"%(outFile)
     
 if __name__ == '__main__':
     '''
