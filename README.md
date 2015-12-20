@@ -29,12 +29,12 @@ This project consists of 6 Jupyter notebooks that walk through the basic configu
 
 The notebooks are ordered as follows:
 
-> Step 1 - Configuration [link](./Step 1 - Configuration.ipynb)  
-> Step 2 - Process Subset [link](./Step 2 - Process Subset.ipynb)  
-> Step 3 - Load Subset to Neo [link](./Step 3 - Load Subset to Neo.ipynb)  
-> Step 4 - Process Entire Dataset [link](./Step 4 - Process Entire Dataset.ipynb)  
-> Step 5 - Import Entire Dataset [link](./Step 5 - Import Entire Dataset.ipynb)  
-> Step 6 - Analysis [link](./Step 6 - Analysis.ipynb)  
+- Step 1 - Configuration [link](./Step 1 - Configuration.ipynb)  
+- Step 2 - Process Subset [link](./Step 2 - Process Subset.ipynb)  
+- Step 3 - Load Subset to Neo [link](./Step 3 - Load Subset to Neo.ipynb)  
+- Step 4 - Process Entire Dataset [link](./Step 4 - Process Entire Dataset.ipynb)  
+- Step 5 - Import Entire Dataset [link](./Step 5 - Import Entire Dataset.ipynb)  
+- Step 6 - Analysis [link](./Step 6 - Analysis.ipynb)  
 
 ---
 
@@ -52,7 +52,7 @@ The notebooks are ordered as follows:
 ## Limitations
 
 - The ETL process developed is based on the directory structure and HDF5 file format of the Million Song Dataset. If the source information has a different structure or format then the data will need to be processed differently and the current implementation would have to be adapted or changed.
-- A thorough data cleaning process was not performed and some issues in the original data were preserved. For example, when a song is performed by more than one artist, the MSD names all of the artist in the 'artist' field, but chooses only one of the artist to use in identifying fields like 'artist-id'. Therefore, the data contains unique artist-ids that are linked to more than one artist name. **For example, the artist id AR0ZAML1187FB39AAE**.
+- A thorough data cleaning process was not performed and some issues in the original data were preserved. For example, when a song is performed by more than one artist, the MSD names all of the artist in the 'artist' field, but chooses only one of the artist to use in identifying fields like 'artist-id'. Therefore, the data contains unique artist-ids that are linked to more than one artist name. Some examples are provided below under 'Data Inconsistencies'.
 - The processed was scaled vertically by using an instance with more CPUs and not horizontally by using a cluster. For a datasets of 30 to 50 million songs, it would better to scale the process horizontally.
 - The similarity relationships were taken from the datasets so the graph relies on the availability of this information in the Echo Nest and Last.fm APIs.
 
@@ -68,7 +68,7 @@ The notebooks are ordered as follows:
 - Add user likes and run personalized Page Rank to make recommendations to users
 
 ---
-## Missing Data Cleaning
+## Data Inconsistencies (not cleaned)
 
 By looking at the error log of Neo4j's import tool, I found some inconsistentcies in the node ids. Some examples are provided below.
 
@@ -96,8 +96,7 @@ print "When artists collaborate in a songs, only one artist is tagged in the dat
 !awk 'NR==939' /graph/neo4j/data/import/artist-013
 !awk 'NR==2068' /graph/neo4j/data/import/artist-013
 !awk 'NR==46' /graph/neo4j/data/import/artist-017
-```
-
+``
     When artists collaborate in a songs, only one artist is tagged in the data
     
     ARW5MXU1187B9A9F58,194e436d-c00a-4772-9c8e-48f7f32c95a4,260893,Anne Linnet;Mek Pek
