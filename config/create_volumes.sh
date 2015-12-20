@@ -21,11 +21,6 @@ export INSTANCE_PDNS
 INSTANCE_ZONE=$(ec2-metadata -z | cut -d:  -f2| cut -d' ' -f2)
 export INSTANCE_ZONE
 
-#echo 'export INSTANCE_ID='$INSTANCE_ID >> ~/.bashrc
-#echo 'export INSTANCE_PDNS='$INSTANCE_PDNS >> ~/.bashrc
-#echo 'export INSTANCE_ZONE='$INSTANCE_ZONE >> ~/.bashrc
-#source ~/.bashrc
-
 # ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 # Create Volumes
 # ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -60,10 +55,10 @@ sleep 30
 # ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
     
 echo LOG: Attaching graph volumne...
-aws ec2 attach-volume --volume-id $GRAPH_VOL_ID --instance-id $INSTANCE_ID --device /dev/xvdh
+aws ec2 attach-volume --volume-id $GRAPH_VOL_ID --instance-id $INSTANCE_ID --device /dev/xvdj
 
 echo LOG: Attaching Million Song Dataset volume...
-aws ec2 attach-volume --volume-id $MSD_VOL_ID --instance-id $INSTANCE_ID --device /dev/xvdj
+aws ec2 attach-volume --volume-id $MSD_VOL_ID --instance-id $INSTANCE_ID --device /dev/xvdk
 
 echo LOG: Wait for volumes to be attached...
     
@@ -73,9 +68,13 @@ sleep 30
 # Mount volumes to instance
 # ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-mkdir -p graph
+mkdir -p /graph
 sudo mkfs -t ext4 /dev/xvdh
-sudo mount -t ext4 /dev/xvdh /graph
+sudo mount -t ext4 /dev/xvdj /graph
+chmod g+rwx -R /graph/
 
-mkdir -p msong_dataset
-sudo mount /dev/xvdj /msong_dataset
+mkdir -p /msong_dataset
+sudo mount /dev/xvdk /msong_dataset
+
+echo LOG: Check volumes were created and mounted...
+lsblk
