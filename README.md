@@ -40,11 +40,15 @@ The notebooks are ordered as follows:
 
 ## Graph Model
 
+The image below shows the graph model used.
+
 ![Model](./images/GraphModel.png)
 
 ---
 
 ## Data Flow
+
+The data flow is summarized in the image below.
 
 ![Data Flow](./images/DataFlow.png)
 
