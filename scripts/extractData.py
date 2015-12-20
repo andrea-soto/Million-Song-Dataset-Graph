@@ -94,7 +94,8 @@ def songToTags(record):
     
     result = []
     for i in range(len(tags)):
-        result.append( track_id +","+ tags[i][0] +","+ str(float(tags[i][1])/total_weight))
+        if (tags[i][0] <> None) and (tags[i][0] <> ''):
+            result.append( track_id +","+ tags[i][0] +","+ str(float(tags[i][1])/total_weight))
     
     return result
 
@@ -111,6 +112,7 @@ if __name__ == '__main__':
     inDir = sys.argv[1]  
     outDir = sys.argv[2]
     mismatch_path = sys.argv[3]
+    cpus = int(sys.argv[4])
     
     #main(input_path, output_path)
     # === Start Spark Context ===
@@ -118,19 +120,19 @@ if __name__ == '__main__':
     
     # =====================================================================
     # === Load mismatches ===
-    toRemoveRDD = sc.textFile('file://'+mismatch_path+'/sid_mismatches.txt').map(parse_mismatches)
+    toRemoveRDD = sc.textFile('file://'+mismatch_path+'/sid_mismatches.txt',cpus).map(parse_mismatches)
     #songsToRemove = toRemoveRDD.collect()
     songsToRemove = sc.broadcast(toRemoveRDD.collect())
     
     
     # =====================================================================
-    # === Load list of files ===
-    song_pathsRDD   = sc.textFile('file://' + inDir + '/list_hdf5_files.txt')
-    lastfm_pathsRDD = sc.textFile('file://' + inDir + '/list_lastfm_files.txt')
+    # === Load list of files ====== Extract Song Data ===
+    song_pathsRDD   = sc.textFile('file://' + inDir + '/list_hdf5_files.txt',cpus)
+    lastfm_pathsRDD = sc.textFile('file://' + inDir + '/list_lastfm_files.txt',cpus)
     
     # === Extract Song Data ===
     songsRDD = song_pathsRDD.map(get_h5_info).filter(lambda x: x<>None).cache()
-    lastfmRDD = lastfm_pathsRDD.map(get_json_info).cache()
+    
     
     # =====================================================================
     # == Delete Sub-Folders ===
@@ -141,8 +143,6 @@ if __name__ == '__main__':
         if os.path.exists(outDir+p):
             shutil.rmtree(outDir+p)
     
-    # =====================================================================
-    # === Create Nodes ===
     
     # === ARTISTS ===
     # CSV Format: artist_id, artist_mb_id, artist_7d_id, artist_name
@@ -164,16 +164,7 @@ if __name__ == '__main__':
     # CSV Format: year
     songsRDD.map(lambda x: x['year']).filter(
         lambda x: int(x) > 0).distinct().saveAsTextFile('file://'+outDir+'/nodes_years')
-    
-    # === TAGS ===
-    # CSV Format: tag_name
-    artistTags = songsRDD.flatMap(lambda x: x['a_terms']).distinct()
-    songTags = lastfmRDD.flatMap(lambda x: x['tags']).map(lambda x: x[0]).distinct()
-    allTags = songTags.union(artistTags).distinct()
-    allTags.saveAsTextFile('file://'+outDir+'/nodes_tags')
-    
-    # =====================================================================
-    # === Create Relationships ===
+
     
     # === SIMILAR_TO relationship between artist and artist ===
     # CSV Format: from_artist_id, to_artist_id
@@ -184,7 +175,7 @@ if __name__ == '__main__':
     # === PERFORMS relationship between artist and song ===
     # CSV Format: artist_id, song_id
     # Artist Performs Song (directional, no properties)
-    songsRDD.map(lambda x: x['artist_id']+","+x['song_id']).distinct().saveAsTextFile('file://'+outDir+'/rel_performs')
+    songsRDD.map(lambda x: x['artist_id']+","+x['track_id']).distinct().saveAsTextFile('file://'+outDir+'/rel_performs')
     
     # === HAS_ALBUM relationship between artist and album  ===
     # CSV Format: artist_id, album_name
@@ -196,10 +187,26 @@ if __name__ == '__main__':
     # Artist Has Tags (directional, has properties frequency and weight)
     songsRDD.flatMap(artistToTags).distinct().saveAsTextFile('file://'+outDir+'/rel_artist_has_tag')
     
+    # === RELEASED_ON relationship between song and year
+    # CSV Format: song_id, year
+    # Song Released in Year (directional, no properties)
+    songsRDD.filter(lambda x: int(x['year'])<>0).map(
+        lambda x: x['track_id']+","+str(x['year'])).saveAsTextFile('file://'+outDir+'/rel_song_year')
+    
     # === IN_ALBUM relationship between song and album ===
     # CSV Format: song_id, album_name
     # Song In Album (direction, no properties)   
-    songsRDD.map(lambda x: x['song_id']+","+x['album']).distinct().saveAsTextFile('file://'+outDir+'/rel_song_in_album')
+    songsRDD.map(lambda x: x['track_id']+","+x['album']).distinct().saveAsTextFile('file://'+outDir+'/rel_song_in_album')
+    
+    # === Extract Lastfm Song Data ===
+    lastfmRDD = lastfm_pathsRDD.map(get_json_info).cache()
+    
+    # === TAGS ===
+    # CSV Format: tag_name
+    artistTags = songsRDD.flatMap(lambda x: x['a_terms']).distinct()
+    songTags = lastfmRDD.flatMap(lambda x: x['tags']).map(lambda x: x[0]).distinct()
+    allTags = songTags.union(artistTags).distinct()
+    allTags.saveAsTextFile('file://'+outDir+'/nodes_tags')
     
     # === SIMILAR_TO relationship between song and song ===
     #CSV Format: from_track_id, to_track_id, similarity_measure
@@ -213,13 +220,6 @@ if __name__ == '__main__':
     # === HAS_TAG relationship between song and tags
     # CSV Format: track_id, tag_name, tag_weight
     lastfmRDD.flatMap(songToTags).saveAsTextFile('file://'+outDir+'/rel_song_has_tag')
-    
-    # === RELEASED_ON relationship between song and year
-    # CSV Format: song_id, year
-    # Song Released in Year (directional, no properties)
-    songsRDD.filter(lambda x: int(x['year'])<>0).map(
-        lambda x: x['song_id']+","+str(x['year'])).saveAsTextFile('file://'+outDir+'/rel_song_year')
-    
     
     # === Stop Spark Context ===
     sc.stop()
