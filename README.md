@@ -25,7 +25,7 @@
 ---
 ## How to 
 
-This project consists of 6 Jupyter notebooks that walk through the basic configuration, show the development and testing of code, the file structures, the data structures, script creation, and how to run the scripts.
+This project consists of 5 Jupyter notebooks that walk through the basic configuration, show the development and testing of code, the file structures, the data structures, script creation, and how to run the scripts.
 
 The notebooks are ordered as follows:
 
@@ -34,7 +34,6 @@ The notebooks are ordered as follows:
 - Step 3 - Load Subset to Neo [link](./Step 3 - Load Subset to Neo.ipynb)  
 - Step 4 - Process Entire Dataset [link](./Step 4 - Process Entire Dataset.ipynb)  
 - Step 5 - Import Entire Dataset [link](./Step 5 - Import Entire Dataset.ipynb)  
-- Step 6 - Analysis [link](./Step 6 - Analysis.ipynb)  
 
 ---
 
@@ -65,6 +64,7 @@ The data flow is summarized in the image below.
 
 ## Future Work
 
+- Use GraphX to perform more graph analytics
 - Improve the quality of the data. For example, when multiple artists collaborate on a song only one 'perform' relationship was created instead of linking all the artist to the song. There are also some id inconsistencies (unique id's for more than one artist or song)
 - Add new songs, node types, or more properties by connecting to the APIs of Echo Nest, Musicbrainz, 7digital, or other music APIs
 - Add nuances like mood tags, artist collaboration, song covers, live versions, etc.
