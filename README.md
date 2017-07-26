@@ -110,4 +110,12 @@ print "When artists collaborate in a songs, only one artist is tagged in the dat
 
 
 When loading the data into Neo4j, only the first node will be created and any repeated nodes will be ignored. This will create errors in the Artist names and relationships. 
+```
 
+---
+### To Start and Stop Neo4j
+
+```
+/graph/neo4j/bin/neo4j start
+/graph/neo4j/bin/neo4j stop
+```
